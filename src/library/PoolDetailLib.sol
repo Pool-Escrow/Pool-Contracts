@@ -35,4 +35,28 @@ library PoolDetailLib {
     function getDepositAmountPerPerson(IPool.PoolDetail storage self) internal view returns (uint256) {
         return self.depositAmountPerPerson;
     }
+
+    function setPoolAdmin(IPool.PoolDetail storage self, address _poolAdmin) internal {
+        self.poolAdmin = _poolAdmin;
+    }
+
+    function getPoolAdmin(IPool.PoolDetail storage self) internal view returns (address) {
+        return self.poolAdmin;
+    }
+
+    function setTotalWinners(IPool.PoolDetail storage self, uint16 _totalWinners) internal {
+        self.totalWinners = _totalWinners;
+    }
+
+    function getTotalWinners(IPool.PoolDetail storage self) internal view returns (uint16) {
+        return self.totalWinners;
+    }
+
+    function setAmountPerWinner(IPool.PoolDetail storage self, uint256 _amountPerWinner) internal {
+        self.amountPerWinner = _amountPerWinner;
+    }
+
+    function getAmountPerWinner(IPool.PoolDetail storage self) internal view returns (uint256) {
+        return self.amountPerWinner;
+    }
 }

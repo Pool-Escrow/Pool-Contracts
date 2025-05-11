@@ -12,14 +12,6 @@ library PoolBalanceLib {
         return self.balance;
     }
 
-    function getFeesAccumulated(IPool.PoolBalance storage self) internal view returns (uint256) {
-        return self.feesAccumulated;
-    }
-
-    function getFeesCollected(IPool.PoolBalance storage self) internal view returns (uint256) {
-        return self.feesCollected;
-    }
-
     function getSponsorshipAmount(IPool.PoolBalance storage self) internal view returns (uint256) {
         return self.sponsored;
     }

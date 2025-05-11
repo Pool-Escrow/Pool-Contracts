@@ -4,10 +4,9 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {Pool} from "../src/Pool.sol";
 import {Droplet} from "../src/mock/MockERC20.sol";
-import "../src/library/ConstantsLib.sol";
 import {IERC20} from "../src/interface/IERC20.sol";
 
-contract ParticipantTest is Test {
+contract EmergencyTest is Test {
 	Pool public pool;
     Droplet public token;
     Droplet public token2;
@@ -32,102 +31,128 @@ contract ParticipantTest is Test {
         host = vm.addr(1);
         alice = vm.addr(2);
         bob = vm.addr(3);
-        pool.grantRole(pool.WHITELISTED_HOST(), host);
+        pool.grantRole(pool.ADMIN_ROLE(), host);
     }
 
     function test_emergencyWithdraw() public {
         helper_createPool();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
         helper_deposit();
 
-        vm.startPrank(address(this)); // Start prank deployer
-        uint256 startingBalance = token.balanceOf(address(this));
+        vm.startPrank(host);
+        uint256 startingBalance = token.balanceOf(host);
         pool.pause();
         pool.emergencyWithdraw(IERC20(address(token)), pool.getPoolBalance(poolId));
-        uint256 endingBalance = token.balanceOf(address(this));
+        uint256 endingBalance = token.balanceOf(host);
 
-        // Make sure balance change is correct
         assertEq(endingBalance - startingBalance, amountToDeposit);
-
+        assertEq(token.balanceOf(address(pool)), 0);
         vm.stopPrank();
     }
 
     function test_emergencyWithdraw_poolStarted() public {
         helper_createPool();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
         helper_deposit();
 
         vm.startPrank(host);
-        pool.startPool(poolId);
-
-        vm.startPrank(address(this)); // Start prank deployer
-        uint256 startingBalance = token.balanceOf(address(this));
+        vm.warp(block.timestamp + 10 days); // After pool start time
+        uint256 startingBalance = token.balanceOf(host);
         pool.pause();
         pool.emergencyWithdraw(IERC20(address(token)), pool.getPoolBalance(poolId));
-        uint256 endingBalance = token.balanceOf(address(this));
+        uint256 endingBalance = token.balanceOf(host);
 
-        // Make sure balance change is correct
         assertEq(endingBalance - startingBalance, amountToDeposit);
-
+        assertEq(token.balanceOf(address(pool)), 0);
         vm.stopPrank();
     }
 
     function test_emergencyWithdraw_poolEnded() public {
         helper_createPool();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
         helper_deposit();
 
         vm.startPrank(host);
-        pool.startPool(poolId);
-        pool.endPool(poolId);
-
-        vm.startPrank(address(this)); // Start prank deployer
-        uint256 startingBalance = token.balanceOf(address(this));
+        vm.warp(block.timestamp + 11 days); // After pool end time
+        uint256 startingBalance = token.balanceOf(host);
         pool.pause();
         pool.emergencyWithdraw(IERC20(address(token)), pool.getPoolBalance(poolId));
-        uint256 endingBalance = token.balanceOf(address(this));
+        uint256 endingBalance = token.balanceOf(host);
 
-        // Make sure balance change is correct
         assertEq(endingBalance - startingBalance, amountToDeposit);
-
+        assertEq(token.balanceOf(address(pool)), 0);
         vm.stopPrank();
     }
 
     function test_emergencyWithdraw_multiPool() public {
         helper_createPool();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
         helper_deposit();
         helper_createSecondPool();
+        vm.warp(block.timestamp + 1 seconds);
         helper_depositSecond();
 
-        vm.startPrank(address(this)); // Start prank deployer
-        uint256 startingBalance = token.balanceOf(address(this));
+        vm.startPrank(host);
+        uint256 startingBalance = token.balanceOf(host);
         pool.pause();
         uint256 toWithdraw = pool.getPoolBalance(poolId) + pool.getPoolBalance(poolId2);
         pool.emergencyWithdraw(IERC20(address(token)), toWithdraw);
-        uint256 endingBalance = token.balanceOf(address(this));
+        uint256 endingBalance = token.balanceOf(host);
 
-        // Make sure balance change is correct
         assertEq(endingBalance - startingBalance, amountToDeposit * 2);
-
+        assertEq(token.balanceOf(address(pool)), 0);
         vm.stopPrank();
     }
 
     function test_emergencyWithdraw_multiToken() public {
         helper_createPool();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
         helper_deposit();
         helper_createPool2();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
         helper_deposit2();
 
-        vm.startPrank(address(this)); // Start prank deployer
-        uint256 startingBalance = token.balanceOf(address(this));
-        uint256 startingBalance2 = token2.balanceOf(address(this));
+        vm.startPrank(host);
+        uint256 startingBalance = token.balanceOf(host);
+        uint256 startingBalance2 = token2.balanceOf(host);
         pool.pause();
         pool.emergencyWithdraw(IERC20(address(token)), pool.getPoolBalance(poolId));
-        pool.emergencyWithdraw(IERC20(address(token2)), pool.getPoolBalance(poolId));
-        uint256 endingBalance = token.balanceOf(address(this));
-        uint256 endingBalance2 = token2.balanceOf(address(this));
+        pool.emergencyWithdraw(IERC20(address(token2)), pool.getPoolBalance(poolId2));
+        uint256 endingBalance = token.balanceOf(host);
+        uint256 endingBalance2 = token2.balanceOf(host);
 
-        // Make sure balance change is correct
         assertEq(endingBalance - startingBalance, amountToDeposit);
         assertEq(endingBalance2 - startingBalance2, amountToDeposit);
+        assertEq(token.balanceOf(address(pool)), 0);
+        assertEq(token2.balanceOf(address(pool)), 0);
+        vm.stopPrank();
+    }
 
+    function test_emergencyWithdraw_notPaused() public {
+        helper_createPool();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
+        helper_deposit();
+
+        vm.startPrank(host);
+        uint256 balance = pool.getPoolBalance(poolId);
+        address tokenAddress = address(token);
+        vm.expectRevert();
+        pool.emergencyWithdraw(IERC20(tokenAddress), balance);
+        vm.stopPrank();
+    }
+
+    function test_emergencyWithdraw_nonAdmin() public {
+        helper_createPool();
+        vm.warp(block.timestamp + 10 days + 1 seconds);
+        helper_deposit();
+
+        vm.startPrank(host);
+        pool.pause();
+        vm.startPrank(alice);
+        uint256 balance = pool.getPoolBalance(poolId);
+        address tokenAddress = address(token);
+        vm.expectRevert();
+        pool.emergencyWithdraw(IERC20(tokenAddress), balance);
         vm.stopPrank();
     }
 
@@ -142,30 +167,30 @@ contract ParticipantTest is Test {
         // Create a pool
         vm.startPrank(host);
         amountToDeposit = 100e18;
-        uint16 feeRate = 3000; // 30% fees
         poolId = pool.createPool(
             uint40(block.timestamp + 10 days),
             uint40(block.timestamp + 11 days),
             "PoolParty",
             amountToDeposit,
-            feeRate,
-            address(token)
+            address(token),
+            2,  // totalWinners
+            50e18  // amountPerWinner
         );
-        pool.enableDeposit(poolId);
     }
 
     function helper_createSecondPool() private turnOffGasMetering {
         // Create a second pool
-        // Grant role for alice to create pool
-        vm.startPrank(address(this));
-        pool.grantRole(pool.WHITELISTED_HOST(), alice);
-
         // Alice create pool
         vm.startPrank(alice);
         poolId2 = pool.createPool(
-            uint40(block.timestamp), uint40(block.timestamp + 10 days), "New", amountToDeposit, 0, address(token)
+            uint40(block.timestamp), 
+            uint40(block.timestamp + 10 days), 
+            "New", 
+            amountToDeposit, 
+            address(token),
+            2,  // totalWinners
+            50e18  // amountPerWinner
         );
-        pool.enableDeposit(poolId2);
     }
 
     function helper_createPool2() private turnOffGasMetering {
@@ -175,16 +200,15 @@ contract ParticipantTest is Test {
         // Create a pool
         vm.startPrank(host);
         amountToDeposit2 = 123e18;
-        uint16 feeRate = 0; // 30% fees
-        poolId = pool.createPool(
+        poolId2 = pool.createPool(
             uint40(block.timestamp + 10 days),
             uint40(block.timestamp + 11 days),
             "Second Pool",
             amountToDeposit,
-            feeRate,
-            address(token2)
+            address(token2),
+            2,  // totalWinners
+            50e18  // amountPerWinner
         );
-        pool.enableDeposit(poolId);
     }
 
     function helper_deposit() private turnOffGasMetering {
@@ -208,6 +232,6 @@ contract ParticipantTest is Test {
         token2.mint(alice, amountToDeposit);
         vm.startPrank(alice);
         token2.approve(address(pool), amountToDeposit);
-        pool.deposit(poolId, amountToDeposit);
+        pool.deposit(poolId2, amountToDeposit);
     }
 }

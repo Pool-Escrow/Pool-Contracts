@@ -13,15 +13,15 @@ library WinnerDetailLib {
         return self.amountWon;
     }
 
+    function addAmountClaimed(IPool.WinnerDetail storage self, uint256 amount) internal {
+        self.amountClaimed += amount;
+    }
+
     function getAmountClaimed(IPool.WinnerDetail storage self) internal view returns (uint256) {
         return self.amountClaimed;
     }
 
     function getTimeWon(IPool.WinnerDetail storage self) internal view returns (uint40) {
         return self.timeWon;
-    }
-
-    function isClaimed(IPool.WinnerDetail storage self) internal view returns (bool) {
-        return self.claimed;
     }
 }
