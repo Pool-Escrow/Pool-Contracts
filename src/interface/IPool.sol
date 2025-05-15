@@ -69,28 +69,6 @@ interface IPool {
     // ----------------------------------------------------------------------------
     // View Functions
     // ----------------------------------------------------------------------------
-    function getHost(uint256 poolId) external view returns (address);
-    function getPoolName(uint256 poolId) external view returns (string memory);
-    function getPoolStartTime(uint256 poolId) external view returns (uint40);
-    function getPoolEndTime(uint256 poolId) external view returns (uint40);
-    function getSponsors(uint256 poolId) external view returns (address[] memory);
-    function getSponsorMessages(uint256 poolId) external view returns (string[] memory);
-    function getPoolDetail(uint256 poolId) external view returns (PoolDetail memory);
-    function getPoolDeposits(uint256 poolId) external view returns (uint256);
-    function getPoolBalance(uint256 poolId) external view returns (uint256);
-    function getPoolToken(uint256 poolId) external view returns (address);
-    function getSponsorshipAmount(uint256 poolId) external view returns (uint256);
-    function getParticipantDeposit(address participant, uint256 poolId) external view returns (uint256);
-    function getParticipantIndex(address participant, uint256 poolId) external view returns (uint256);
-    function getParticipantDetail(address participant, uint256 poolId) external view returns (ParticipantDetail memory);
-    function getWinningAmount(uint256 poolId, address winner) external view returns (uint256);
-    function getWinnerTimeWon(uint256 poolId, address winner) external view returns (uint40);
-    function getWinnerAmountClaimed(uint256 poolId, address winner) external view returns (uint256);
-    function getWinnerDetail(uint256 poolId, address winner) external view returns (WinnerDetail memory);
-    function getPoolsCreatedBy(address host) external view returns (uint256[] memory);
-    function getPoolsJoinedBy(address participant) external view returns (uint256[] memory);
-    function getParticipants(uint256 poolId) external view returns (address[] memory);
-    function getWinners(uint256 poolId) external view returns (address[] memory);
     function getClaimablePools(address winner) external view returns (uint256[] memory, bool[] memory);
     function getWinnersDetails(uint256 poolId) external view returns (address[] memory, WinnerDetail[] memory);
     function getAllPoolInfo(uint256 poolId) external view returns (

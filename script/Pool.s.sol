@@ -4,16 +4,28 @@ pragma solidity ^0.8.13;
 import {Script, console} from "forge-std/Script.sol";
 import {Pool} from "../src/Pool.sol";
 import {Droplet} from "../src/mock/MockERC20.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract PoolScript is Script {
     Pool public pool;
     Droplet public token;
+    IERC20 public usdc;
 
     function setUp() public {}
 
     function run() public {
         vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
         pool = new Pool();
+        usdc = IERC20(0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913);
+        pool.createPool(
+            uint40(block.timestamp + 2 days),
+            uint40(block.timestamp + 2 days + 6 hours),
+            "Test pool",
+            1000,
+            address(usdc),
+            1,
+            1000
+        );
         vm.stopBroadcast();
     }
 

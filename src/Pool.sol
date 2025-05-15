@@ -123,7 +123,11 @@ contract Pool is IPool, AccessControl, Pausable, ReentrancyGuard {
     // Sponsor Functions
     // ----------------------------------------------------------------------------
 
-    function sponsor(uint256 poolId, uint256 amount, string calldata oneTimeShortMessage) external whenNotPaused nonReentrant {
+    function sponsor(uint256 poolId, uint256 amount, string calldata oneTimeShortMessage)
+        external
+        whenNotPaused
+        nonReentrant
+    {
         require(poolDetail[poolId].getPoolAdmin() != address(0), "Pool not created");
         require(poolDetail[poolId].getTimeEnd() >= block.timestamp, "Pool ended");
         require(amount > 0, "Invalid amount");
@@ -252,98 +256,6 @@ contract Pool is IPool, AccessControl, Pausable, ReentrancyGuard {
     // View Functions
     // ----------------------------------------------------------------------------
 
-    function getHost(uint256 poolId) external view returns (address) {
-        return poolDetail[poolId].getPoolAdmin();
-    }
-
-    function getPoolName(uint256 poolId) external view returns (string memory) {
-        return poolDetail[poolId].getPoolName();
-    }
-
-    function getPoolStartTime(uint256 poolId) external view returns (uint40) {
-        return poolDetail[poolId].getTimeStart();
-    }
-
-    function getPoolEndTime(uint256 poolId) external view returns (uint40) {
-        return poolDetail[poolId].getTimeEnd();
-    }
-
-    function getSponsors(uint256 poolId) external view returns (address[] memory) {
-        return sponsors[poolId];
-    }
-
-    function getSponsorMessages(uint256 poolId) external view returns (string[] memory) {
-        return sponsorMessages[poolId];
-    }
-
-    function getPoolDetail(uint256 poolId) external view returns (IPool.PoolDetail memory) {
-        return poolDetail[poolId];
-    }
-
-    function getPoolDeposits(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].getDepositAmount();
-    }
-
-    function getPoolBalance(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].getBalance();
-    }
-
-    function getPoolToken(uint256 poolId) external view returns (address) {
-        return address(poolToken[poolId]);
-    }
-
-    function getSponsorshipAmount(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].getSponsorshipAmount();
-    }
-
-    function getParticipantDeposit(address participant, uint256 poolId) public view returns (uint256) {
-        return participantDetail[participant][poolId].getDeposit();
-    }
-
-    function getParticipantIndex(address participant, uint256 poolId) external view returns (uint256) {
-        return participantDetail[participant][poolId].getParticipantIndex();
-    }
-
-    function getParticipantDetail(address participant, uint256 poolId)
-        public
-        view
-        returns (IPool.ParticipantDetail memory)
-    {
-        return participantDetail[participant][poolId];
-    }
-
-    function getWinningAmount(uint256 poolId, address winner) external view returns (uint256) {
-        return winnerDetail[winner][poolId].getAmountWon();
-    }
-
-    function getWinnerTimeWon(uint256 poolId, address winner) external view returns (uint40) {
-        return winnerDetail[winner][poolId].getTimeWon();
-    }
-
-    function getWinnerAmountClaimed(uint256 poolId, address winner) external view returns (uint256) {
-        return winnerDetail[winner][poolId].getAmountClaimed();
-    }
-
-    function getWinnerDetail(uint256 poolId, address winner) external view returns (IPool.WinnerDetail memory) {
-        return winnerDetail[winner][poolId];
-    }
-
-    function getPoolsCreatedBy(address host) external view returns (uint256[] memory) {
-        return createdPools[host];
-    }
-
-    function getPoolsJoinedBy(address participant) external view returns (uint256[] memory) {
-        return joinedPools[participant];
-    }
-
-    function getParticipants(uint256 poolId) external view returns (address[] memory) {
-        return participants[poolId];
-    }
-
-    function getWinners(uint256 poolId) external view returns (address[] memory) {
-        return winners[poolId];
-    }
-
     function getClaimablePools(address winner) external view returns (uint256[] memory, bool[] memory) {
         bool[] memory isClaimed = new bool[](claimablePools[winner].length);
         for (uint256 i; i < claimablePools[winner].length; i++) {
@@ -371,13 +283,8 @@ contract Pool is IPool, AccessControl, Pausable, ReentrancyGuard {
             address[] memory _winners
         )
     {
-        return (
-            poolDetail[poolId],
-            poolBalance[poolId],
-            address(poolToken[poolId]),
-            participants[poolId],
-            winners[poolId]
-        );
+        return
+            (poolDetail[poolId], poolBalance[poolId], address(poolToken[poolId]), participants[poolId], winners[poolId]);
     }
 
     // ----------------------------------------------------------------------------
