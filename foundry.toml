@@ -15,6 +15,8 @@ remappings = [
 [rpc_endpoints]
 base = "${BASE_URL}"
 base_testnet = "${BASE_SEPOLIA_URL}"
+flow = "${FLOW_URL}"
+flow_testnet = "${FLOW_TESTNET_URL}"
 
 [etherscan]
 base = {key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api", chain = "8453"}

@@ -9,14 +9,9 @@ import {IERC20} from "./interface/IERC20.sol";
 import {FEES_PRECISION, FORFEIT_WINNINGS_TIMELOCK} from "./library/ConstantsLib.sol";
 import {EventsLib} from "./library/EventsLib.sol";
 import {ErrorsLib} from "./library/ErrorsLib.sol";
-import {PoolAdminLib} from "./library/PoolAdminLib.sol";
-import {PoolDetailLib} from "./library/PoolDetailLib.sol";
-import {PoolBalanceLib} from "./library/PoolBalanceLib.sol";
 import {ParticipantDetailLib} from "./library/ParticipantDetailLib.sol";
-import {WinnerDetailLib} from "./library/WinnerDetailLib.sol";
 import {UtilsLib} from "./library/UtilsLib.sol";
 import {SafeTransferLib} from "./library/SafeTransferLib.sol";
-import {SponsorDetailLib} from "./library/SponsorDetailLib.sol";
 
 /// Dependencies
 import {Ownable2Step} from "./dependency/Ownable2Step.sol";
@@ -26,12 +21,7 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
 contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     using SafeTransferLib for IERC20;
-    using PoolAdminLib for IPool.PoolAdmin;
-    using PoolDetailLib for IPool.PoolDetail;
-    using PoolBalanceLib for IPool.PoolBalance;
     using ParticipantDetailLib for IPool.ParticipantDetail;
-    using WinnerDetailLib for IPool.WinnerDetail;
-    using SponsorDetailLib for IPool.SponsorDetail;
 
     uint256 public latestPoolId; // Start from 1, 0 is invalid
     bytes32 public constant WHITELISTED_HOST = keccak256("WHITELISTED_HOST");
@@ -90,7 +80,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     function deposit(uint256 poolId, uint256 amount) external whenNotPaused returns (bool) {
         require(poolStatus[poolId] == POOLSTATUS.DEPOSIT_ENABLED, "Deposit not enabled");
         require(!isParticipant[msg.sender][poolId], "Already in pool");
-        uint256 amountPerPerson = poolDetail[poolId].getDepositAmountPerPerson();
+        uint256 amountPerPerson = poolDetail[poolId].depositAmountPerPerson;
         require(amount >= amountPerPerson, "Incorrect amount");
 
         // Excess as extra donation
@@ -101,17 +91,17 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         // Update pool details
         poolBalance[poolId].totalDeposits += amount;
         poolBalance[poolId].balance += amount;
-        participantDetail[msg.sender][poolId].setParticipantIndex(participants[poolId].length);
+        participantDetail[msg.sender][poolId].participantIndex = uint120(participants[poolId].length);
         participants[poolId].push(msg.sender);
 
         // Update participant details
-        participantDetail[msg.sender][poolId].setJoinedPoolsIndex(joinedPools[msg.sender].length);
+        participantDetail[msg.sender][poolId].joinedPoolsIndex = uint120(joinedPools[msg.sender].length);
         joinedPools[msg.sender].push(poolId);
         isParticipant[msg.sender][poolId] = true;
         participantDetail[msg.sender][poolId].deposit = amountPerPerson;
 
         // Edge case for rejoin
-        if (participantDetail[msg.sender][poolId].isRefunded() || winnerDetail[msg.sender][poolId].isClaimed()) {
+        if (participantDetail[msg.sender][poolId].refunded || winnerDetail[msg.sender][poolId].claimed) {
             participantDetail[msg.sender][poolId].refunded = false;
             winnerDetail[msg.sender][poolId].claimed = false;
             emit EventsLib.ParticipantRejoined(poolId, msg.sender);
@@ -133,9 +123,9 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      * @dev Emits WinningClaimed event
      */
     function claimWinning(uint256 poolId, address winner) public whenNotPaused {
-        require(!winnerDetail[winner][poolId].isClaimed(), "Already claimed");
+        require(!winnerDetail[winner][poolId].claimed, "Already claimed");
 
-        uint256 amount = winnerDetail[winner][poolId].getAmountWon() - winnerDetail[winner][poolId].getAmountClaimed();
+        uint256 amount = winnerDetail[winner][poolId].amountWon - winnerDetail[winner][poolId].amountClaimed;
         require(amount > 0, "No winnings");
 
         winnerDetail[winner][poolId].claimed = true;
@@ -164,9 +154,9 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     function selfRefund(uint256 poolId) external whenNotPaused {
         require(poolStatus[poolId] != POOLSTATUS.STARTED, "Pool started");
         require(poolStatus[poolId] != POOLSTATUS.ENDED, "Pool ended");
-        require(!participantDetail[msg.sender][poolId].isRefunded(), "Already refunded");
+        require(!participantDetail[msg.sender][poolId].refunded, "Already refunded");
         require(isParticipant[msg.sender][poolId], "Not a participant");
-        require(winnerDetail[msg.sender][poolId].getAmountWon() == 0, "Winner cannot do refund");
+        require(winnerDetail[msg.sender][poolId].amountWon == 0, "Winner cannot do refund");
 
         // Apply fees if pool is not deleted
         if (poolStatus[poolId] != POOLSTATUS.DELETED) {
@@ -209,7 +199,8 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         if (sponsorDetail[msg.sender][poolId].amount != 0) {
             sponsorDetail[msg.sender][poolId].amount += amount;
         } else {
-            sponsorDetail[msg.sender][poolId].init(name, amount);
+            sponsorDetail[msg.sender][poolId].name = name;
+            sponsorDetail[msg.sender][poolId].amount = amount;
             sponsors[poolId].push(msg.sender);
         }
 
@@ -250,14 +241,14 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         latestPoolId++;
 
         // Pool details
-        poolDetail[latestPoolId].setTimeStart(timeStart);
-        poolDetail[latestPoolId].setTimeEnd(timeEnd);
-        poolDetail[latestPoolId].setPoolName(poolName);
-        poolDetail[latestPoolId].setDepositAmountPerPerson(depositAmountPerPerson);
+        poolDetail[latestPoolId].timeStart = timeStart;
+        poolDetail[latestPoolId].timeEnd = timeEnd;
+        poolDetail[latestPoolId].poolName = poolName;
+        poolDetail[latestPoolId].depositAmountPerPerson = depositAmountPerPerson;
 
         // Pool admin details
-        poolAdmin[latestPoolId].setPenaltyFeeRate(penaltyFeeRate);
-        poolAdmin[latestPoolId].setHost(msg.sender);
+        poolAdmin[latestPoolId].penaltyFeeRate = penaltyFeeRate;
+        poolAdmin[latestPoolId].host = msg.sender;
         isHost[msg.sender][latestPoolId] = true;
         createdPools[msg.sender].push(latestPoolId);
 
@@ -291,7 +282,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      * @dev Emits PoolNameChanged event
      */
     function changePoolName(uint256 poolId, string calldata poolName) external onlyHost(poolId) whenNotPaused {
-        poolDetail[poolId].setPoolName(poolName);
+        poolDetail[poolId].poolName = poolName;
         emit EventsLib.PoolNameChanged(poolId, poolName);
     }
 
@@ -307,7 +298,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
             poolStatus[poolId] == POOLSTATUS.INACTIVE || poolStatus[poolId] == POOLSTATUS.DEPOSIT_ENABLED,
             "Pool already started"
         );
-        poolDetail[poolId].setTimeStart(timeStart);
+        poolDetail[poolId].timeStart = timeStart;
 
         emit EventsLib.PoolStartTimeChanged(poolId, timeStart);
     }
@@ -323,7 +314,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         require(
             poolStatus[poolId] != POOLSTATUS.ENDED && poolStatus[poolId] != POOLSTATUS.DELETED, "Pool already ended"
         );
-        poolDetail[poolId].setTimeEnd(timeEnd);
+        poolDetail[poolId].timeEnd = timeEnd;
 
         emit EventsLib.PoolEndTimeChanged(poolId, timeEnd);
     }
@@ -340,7 +331,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         require(poolStatus[poolId] == POOLSTATUS.DEPOSIT_ENABLED, "Deposit not enabled yet");
 
         poolStatus[poolId] = POOLSTATUS.STARTED;
-        poolDetail[poolId].setTimeStart(uint40(block.timestamp)); // update actual start time
+        poolDetail[poolId].timeStart = uint40(block.timestamp); // update actual start time
         emit EventsLib.PoolStatusChanged(poolId, POOLSTATUS.STARTED);
     }
 
@@ -371,7 +362,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         require(poolStatus[poolId] == POOLSTATUS.STARTED, "Pool not started");
 
         poolStatus[poolId] = POOLSTATUS.ENDED;
-        poolDetail[poolId].setTimeEnd(uint40(block.timestamp)); // update actual end time
+        poolDetail[poolId].timeEnd = uint40(block.timestamp); // update actual end time
         emit EventsLib.PoolStatusChanged(poolId, POOLSTATUS.ENDED);
     }
 
@@ -403,14 +394,15 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
             poolStatus[poolId] != POOLSTATUS.INACTIVE && poolStatus[poolId] != POOLSTATUS.DELETED, "Pool status invalid"
         );
         require(isParticipant[winner][poolId], "Not a participant");
-        require(amount <= poolBalance[poolId].getBalance(), "Not enough balance");
-        require(!winnerDetail[winner][poolId].isClaimed(), "Already claimed");
+        require(amount <= poolBalance[poolId].balance, "Not enough balance");
+        require(!winnerDetail[winner][poolId].claimed, "Already claimed");
 
         // Update pool balance
         poolBalance[poolId].balance -= amount;
 
         // Update winner details
-        winnerDetail[winner][poolId].addAmountWon(amount);
+        winnerDetail[winner][poolId].timeWon = uint40(block.timestamp);
+        winnerDetail[winner][poolId].amountWon += amount;
 
         // Prevent duplicate entry in winners array
         if (!winnerDetail[winner][poolId].alreadyInList) {
@@ -450,9 +442,9 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         whenNotPaused
     {
         require(poolStatus[poolId] != POOLSTATUS.ENDED, "Pool is not ended");
-        require(participantDetail[participant][poolId].isRefunded() == false, "Already refunded");
+        require(participantDetail[participant][poolId].refunded == false, "Already refunded");
         require(isParticipant[participant][poolId], "Not a participant");
-        require(poolBalance[poolId].getBalance() > 0, "Pool has no balance");
+        require(poolBalance[poolId].balance > 0, "Pool has no balance");
 
         _refund(poolId, participant, amount);
     }
@@ -465,11 +457,11 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      */
     function collectFees(uint256 poolId) external whenNotPaused {
         // Transfer fees to host
-        uint256 fees = poolBalance[poolId].getFeesAccumulated() - poolBalance[poolId].getFeesCollected();
+        uint256 fees = poolBalance[poolId].feesAccumulated - poolBalance[poolId].feesCollected;
         require(fees != 0, "No fees to collect");
         poolBalance[poolId].feesCollected += fees;
 
-        address host = poolAdmin[poolId].getHost();
+        address host = poolAdmin[poolId].host;
         poolToken[poolId].safeTransfer(host, fees);
 
         emit EventsLib.FeesCollected(poolId, host, fees);
@@ -483,11 +475,11 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      */
     function collectRemainingBalance(uint256 poolId) external onlyHost(poolId) whenNotPaused {
         require(poolStatus[poolId] == POOLSTATUS.ENDED || poolStatus[poolId] == POOLSTATUS.DELETED, "Pool not ended");
-        uint256 amount = poolBalance[poolId].getBalance();
+        uint256 amount = poolBalance[poolId].balance;
         require(amount > 0, "Nothing to withdraw");
 
         poolBalance[poolId].balance = 0;
-        address host = poolAdmin[poolId].getHost();
+        address host = poolAdmin[poolId].host;
         poolToken[poolId].safeTransfer(host, amount);
 
         emit EventsLib.RemainingBalanceCollected(poolId, host, amount);
@@ -505,10 +497,10 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      */
     function forfeitWinnings(uint256 poolId, address winner) external onlyHost(poolId) whenNotPaused {
         require(poolStatus[poolId] == POOLSTATUS.ENDED, "Pool not ended");
-        require(block.timestamp > poolDetail[poolId].getTimeEnd() + FORFEIT_WINNINGS_TIMELOCK, "Still in timelock");
-        require(!winnerDetail[winner][poolId].isClaimed(), "Already claimed");
+        require(block.timestamp > poolDetail[poolId].timeEnd + FORFEIT_WINNINGS_TIMELOCK, "Still in timelock");
+        require(!winnerDetail[winner][poolId].claimed, "Already claimed");
 
-        uint256 amount = winnerDetail[winner][poolId].getAmountWon();
+        uint256 amount = winnerDetail[winner][poolId].amountWon;
         require(amount > 0, "No winnings");
 
         winnerDetail[winner][poolId].forfeited = true;
@@ -521,193 +513,6 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     // ----------------------------------------------------------------------------
     // View Functions
     // ----------------------------------------------------------------------------
-
-    /**
-     * @notice Get host of a pool
-     * @param poolId The pool id
-     */
-    function getHost(uint256 poolId) external view returns (address) {
-        return poolAdmin[poolId].getHost();
-    }
-
-    /**
-     * @notice Get sponsors of a pool
-     * @param poolId The pool id
-     */
-    function getSponsors(uint256 poolId) external view returns (address[] memory) {
-        return sponsors[poolId];
-    }
-
-    /**
-     * @notice Get sponsor details of a pool
-     * @param poolId The pool id
-     * @param _sponsor The sponsor address
-     */
-    function getSponsorDetail(uint256 poolId, address _sponsor) external view returns (IPool.SponsorDetail memory) {
-        return sponsorDetail[_sponsor][poolId];
-    }
-
-    /**
-     * @notice Get fees rate of late refund
-     * @param poolId The pool id
-     * @return penaltyFeeRate The penalty fee rate
-     */
-    function getPoolFeeRate(uint256 poolId) public view returns (uint16) {
-        return poolAdmin[poolId].getPenaltyFeeRate();
-    }
-
-    /**
-     * @notice Get pool details
-     * @param poolId The pool id
-     * @return poolDetail The pool details
-     */
-    function getPoolDetail(uint256 poolId) external view returns (IPool.PoolDetail memory) {
-        return poolDetail[poolId];
-    }
-
-    /**
-     * @notice Get pool balance
-     * @param poolId The pool id
-     * @return balance The balance of the pool
-     */
-    function getPoolBalance(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].getBalance();
-    }
-
-    /**
-     * @notice Get sponsored balance of a pool
-     * @param poolId The pool id
-     * @return sponsorshipAmount The sponsored balance of the pool
-     */
-    function getSponsorshipAmount(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].getSponsorshipAmount();
-    }
-
-    /**
-     * @notice Get fees accumulated in a pool
-     * @param poolId The pool id
-     * @return feesAccumulated The fees accumulated in the pool
-     */
-    function getFeesAccumulated(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].getFeesAccumulated();
-    }
-
-    /**
-     * @notice Get fees collected in a pool
-     * @param poolId The pool id
-     * @return feesCollected The fees collected in the pool
-     */
-    function getFeesCollected(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].getFeesCollected();
-    }
-
-    /**
-     * @notice Get deposit of a participant in a pool
-     * @param participant The participant address
-     * @param poolId The pool id
-     * @return deposit The deposit of the participant
-     */
-    function getParticipantDeposit(address participant, uint256 poolId) public view returns (uint256) {
-        return ParticipantDetailLib.getDeposit(participantDetail, participant, poolId);
-    }
-
-    /**
-     * @notice Get details of a participant in a pool
-     * @param participant The participant address
-     * @param poolId The pool id
-     * @return participantDetail The participant details
-     */
-    function getParticipantDetail(address participant, uint256 poolId)
-        public
-        view
-        returns (IPool.ParticipantDetail memory)
-    {
-        return participantDetail[participant][poolId];
-    }
-
-    /**
-     * @notice Get amount won by a winner in a pool
-     * @param poolId The pool id
-     * @param winner The winner address
-     * @return amountWon The amount won by the winner
-     */
-    function getWinningAmount(uint256 poolId, address winner) external view returns (uint256) {
-        return winnerDetail[winner][poolId].getAmountWon();
-    }
-
-    /**
-     * @notice Get details of a winner in a pool
-     * @param poolId The pool id
-     * @param winner The winner address
-     * @return winnerDetail The winner details
-     */
-    function getWinnerDetail(uint256 poolId, address winner) external view returns (IPool.WinnerDetail memory) {
-        return winnerDetail[winner][poolId];
-    }
-
-    /**
-     * @notice Get created pools by a host
-     * @param host The host address
-     * @return poolIds The pool ids created by the host
-     */
-    function getPoolsCreatedBy(address host) external view returns (uint256[] memory) {
-        return createdPools[host];
-    }
-
-    /**
-     * @notice Get joined pools by a participant
-     * @param participant The participant address
-     * @return poolIds The pool ids joined by the participant
-     */
-    function getPoolsJoinedBy(address participant) external view returns (uint256[] memory) {
-        return joinedPools[participant];
-    }
-
-    /**
-     * @notice Get participants list of a pool
-     * @param poolId The pool id
-     * @return participants The list of participants
-     */
-    function getParticipants(uint256 poolId) external view returns (address[] memory) {
-        return participants[poolId];
-    }
-
-    /**
-     * @notice Get winners of a pool
-     * @param poolId The pool id
-     * @return winners The list of winners
-     */
-    function getWinners(uint256 poolId) external view returns (address[] memory) {
-        return winners[poolId];
-    }
-
-    /**
-     * @notice Get claimable pools of a winner
-     * @param winner The winner address
-     * @return claimablePools The list of claimable pools
-     * @return isClaimed The list of claim status
-     */
-    function getClaimablePools(address winner) external view returns (uint256[] memory, bool[] memory) {
-        bool[] memory isClaimed = new bool[](claimablePools[winner].length);
-        for (uint256 i; i < claimablePools[winner].length; i++) {
-            isClaimed[i] = winnerDetail[winner][claimablePools[winner][i]].isClaimed();
-        }
-        return (claimablePools[winner], isClaimed);
-    }
-
-    /**
-     * @notice Get winners details in array of structs of a pool
-     * @param poolId The pool id
-     * @return winners The list of winners
-     * @return _winners The list of winners details
-     */
-    function getWinnersDetails(uint256 poolId) external view returns (address[] memory, IPool.WinnerDetail[] memory) {
-        IPool.WinnerDetail[] memory _winners = new IPool.WinnerDetail[](winners[poolId].length);
-        for (uint256 i; i < winners[poolId].length; i++) {
-            _winners[i] = winnerDetail[winners[poolId][i]][poolId];
-        }
-        return (winners[poolId], _winners);
-    }
 
     // @dev Get everthing about a pool
     function getAllPoolInfo(uint256 poolId)
@@ -761,9 +566,9 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      * @param amount The amount to refund
      */
     function _refund(uint256 poolId, address participant, uint256 amount) internal {
-        uint256 deposited = ParticipantDetailLib.getDeposit(participantDetail, participant, poolId);
+        uint256 deposited = participantDetail[participant][poolId].deposit;
         if (amount == 0) {
-            amount = deposited - ParticipantDetailLib.getFeesCharged(participantDetail, participant, poolId);
+            amount = deposited - participantDetail[participant][poolId].feesCharged;
         }
         require(amount <= deposited, "Not enough balance");
 
@@ -794,10 +599,11 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      */
     function _applyFees(uint256 poolId) internal {
         // Charge fees if event is < 24 hours to start or started
-        uint40 timeStart = poolDetail[poolId].getTimeStart();
+        uint40 timeStart = poolDetail[poolId].timeStart;
         if (block.timestamp >= timeStart - 1 days && block.timestamp <= timeStart) {
-            uint256 fees = (getPoolFeeRate(poolId) * getParticipantDeposit(msg.sender, poolId)) / FEES_PRECISION;
-            uint256 prevBalance = poolBalance[poolId].getBalance();
+            uint256 fees =
+                (poolAdmin[poolId].penaltyFeeRate * participantDetail[msg.sender][poolId].deposit) / FEES_PRECISION;
+            uint256 prevBalance = poolBalance[poolId].balance;
             poolBalance[poolId].balance -= fees;
             participantDetail[msg.sender][poolId].feesCharged += fees;
             poolBalance[poolId].feesAccumulated += fees;

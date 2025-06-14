@@ -5,22 +5,6 @@ import {IPool} from "../interface/IPool.sol";
 import {EventsLib} from "./EventsLib.sol";
 
 library ParticipantDetailLib {
-    function getDeposit(
-        mapping(address => mapping(uint256 => IPool.ParticipantDetail)) storage participantDetail,
-        address participant,
-        uint256 poolId
-    ) internal view returns (uint256) {
-        return participantDetail[participant][poolId].deposit;
-    }
-
-    function getFeesCharged(
-        mapping(address => mapping(uint256 => IPool.ParticipantDetail)) storage participantDetail,
-        address participant,
-        uint256 poolId
-    ) internal view returns (uint256) {
-        return participantDetail[participant][poolId].feesCharged;
-    }
-
     function removeParticipantFromPool(
         mapping(address => mapping(uint256 => IPool.ParticipantDetail)) storage participantDetail,
         mapping(uint256 => address[]) storage participants,
@@ -28,13 +12,13 @@ library ParticipantDetailLib {
         address participant,
         uint256 poolId
     ) internal {
-        uint256 i = getParticipantIndex(participantDetail[participant][poolId]);
+        uint256 i = participantDetail[participant][poolId].participantIndex;
         assert(participant == participants[poolId][i]);
         if (i < participants[poolId].length - 1) {
             // Move last to replace current index
             address lastParticipant = participants[poolId][participants[poolId].length - 1];
             participants[poolId][i] = lastParticipant;
-            setParticipantIndex(participantDetail[lastParticipant][poolId], i);
+            participantDetail[lastParticipant][poolId].participantIndex = uint120(i);
         }
         participants[poolId].pop();
         isParticipant[participant][poolId] = false;
@@ -48,36 +32,16 @@ library ParticipantDetailLib {
         address participant,
         uint256 poolId
     ) internal {
-        uint256 i = getJoinedPoolsIndex(participantDetail[participant][poolId]);
+        uint256 i = participantDetail[participant][poolId].joinedPoolsIndex;
         assert(poolId == joinedPools[participant][i]);
         if (i < joinedPools[participant].length - 1) {
             // Move last to replace current index
             uint256 lastPool = joinedPools[participant][joinedPools[participant].length - 1];
             joinedPools[participant][i] = lastPool;
-            setJoinedPoolsIndex(participantDetail[participant][lastPool], i);
+            participantDetail[participant][lastPool].joinedPoolsIndex = uint120(i);
         }
         joinedPools[participant].pop();
 
         emit EventsLib.JoinedPoolsRemoved(poolId, participant);
-    }
-
-    function setParticipantIndex(IPool.ParticipantDetail storage self, uint256 _participantIndex) internal {
-        self.participantIndex = uint120(_participantIndex);
-    }
-
-    function getParticipantIndex(IPool.ParticipantDetail storage self) internal view returns (uint256) {
-        return self.participantIndex;
-    }
-
-    function setJoinedPoolsIndex(IPool.ParticipantDetail storage self, uint256 _joinedPoolsIndex) internal {
-        self.joinedPoolsIndex = uint120(_joinedPoolsIndex);
-    }
-
-    function getJoinedPoolsIndex(IPool.ParticipantDetail storage self) internal view returns (uint256) {
-        return self.joinedPoolsIndex;
-    }
-
-    function isRefunded(IPool.ParticipantDetail storage self) internal view returns (bool) {
-        return self.refunded;
     }
 }
