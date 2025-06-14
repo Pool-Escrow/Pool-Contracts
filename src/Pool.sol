@@ -24,8 +24,8 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     using ParticipantDetailLib for IPool.ParticipantDetail;
 
     uint256 public latestPoolId; // Start from 1, 0 is invalid
-    bytes32 public constant WHITELISTED_HOST = keccak256("WHITELISTED_HOST");
-    bytes32 public constant WHITELISTED_SPONSOR = keccak256("WHITELISTED_SPONSOR");
+    bytes32 public constant WHITELISTED_HOST = 0xd4b8aa22b7d8e3cd5d1a213163a89192d1a63c6abcb930b02aa1c2d6efc32625; // keccak256("WHITELISTED_HOST");
+    bytes32 public constant WHITELISTED_SPONSOR = 0x2627ca8cd6e046054c92b9f4142ed371232f275c03fa515989dd56fa92f98e40; // keccak256("WHITELISTED_SPONSOR");
 
     /// @dev Pool specific mappings
     mapping(uint256 => PoolAdmin) public poolAdmin;
@@ -513,6 +513,193 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     // ----------------------------------------------------------------------------
     // View Functions
     // ----------------------------------------------------------------------------
+
+    /**
+     * @notice Get host of a pool
+     * @param poolId The pool id
+     */
+    function getHost(uint256 poolId) external view returns (address) {
+        return poolAdmin[poolId].host;
+    }
+
+    /**
+     * @notice Get sponsors of a pool
+     * @param poolId The pool id
+     */
+    function getSponsors(uint256 poolId) external view returns (address[] memory) {
+        return sponsors[poolId];
+    }
+
+    /**
+     * @notice Get sponsor details of a pool
+     * @param poolId The pool id
+     * @param _sponsor The sponsor address
+     */
+    function getSponsorDetail(uint256 poolId, address _sponsor) external view returns (IPool.SponsorDetail memory) {
+        return sponsorDetail[_sponsor][poolId];
+    }
+
+    /**
+     * @notice Get fees rate of late refund
+     * @param poolId The pool id
+     * @return penaltyFeeRate The penalty fee rate
+     */
+    function getPoolFeeRate(uint256 poolId) public view returns (uint16) {
+        return poolAdmin[poolId].penaltyFeeRate;
+    }
+
+    /**
+     * @notice Get pool details
+     * @param poolId The pool id
+     * @return poolDetail The pool details
+     */
+    function getPoolDetail(uint256 poolId) external view returns (IPool.PoolDetail memory) {
+        return poolDetail[poolId];
+    }
+
+    /**
+     * @notice Get pool balance
+     * @param poolId The pool id
+     * @return balance The balance of the pool
+     */
+    function getPoolBalance(uint256 poolId) external view returns (uint256) {
+        return poolBalance[poolId].balance;
+    }
+
+    /**
+     * @notice Get sponsored balance of a pool
+     * @param poolId The pool id
+     * @return sponsorshipAmount The sponsored balance of the pool
+     */
+    function getSponsorshipAmount(uint256 poolId) external view returns (uint256) {
+        return poolBalance[poolId].sponsored;
+    }
+
+    /**
+     * @notice Get fees accumulated in a pool
+     * @param poolId The pool id
+     * @return feesAccumulated The fees accumulated in the pool
+     */
+    function getFeesAccumulated(uint256 poolId) external view returns (uint256) {
+        return poolBalance[poolId].feesAccumulated;
+    }
+
+    /**
+     * @notice Get fees collected in a pool
+     * @param poolId The pool id
+     * @return feesCollected The fees collected in the pool
+     */
+    function getFeesCollected(uint256 poolId) external view returns (uint256) {
+        return poolBalance[poolId].feesCollected;
+    }
+
+    /**
+     * @notice Get deposit of a participant in a pool
+     * @param participant The participant address
+     * @param poolId The pool id
+     * @return deposit The deposit of the participant
+     */
+    function getParticipantDeposit(address participant, uint256 poolId) public view returns (uint256) {
+        return participantDetail[participant][poolId].deposit;
+    }
+
+    /**
+     * @notice Get details of a participant in a pool
+     * @param participant The participant address
+     * @param poolId The pool id
+     * @return participantDetail The participant details
+     */
+    function getParticipantDetail(address participant, uint256 poolId)
+        public
+        view
+        returns (IPool.ParticipantDetail memory)
+    {
+        return participantDetail[participant][poolId];
+    }
+
+    /**
+     * @notice Get amount won by a winner in a pool
+     * @param poolId The pool id
+     * @param winner The winner address
+     * @return amountWon The amount won by the winner
+     */
+    function getWinningAmount(uint256 poolId, address winner) external view returns (uint256) {
+        return winnerDetail[winner][poolId].amountWon;
+    }
+
+    /**
+     * @notice Get details of a winner in a pool
+     * @param poolId The pool id
+     * @param winner The winner address
+     * @return winnerDetail The winner details
+     */
+    function getWinnerDetail(uint256 poolId, address winner) external view returns (IPool.WinnerDetail memory) {
+        return winnerDetail[winner][poolId];
+    }
+
+    /**
+     * @notice Get created pools by a host
+     * @param host The host address
+     * @return poolIds The pool ids created by the host
+     */
+    function getPoolsCreatedBy(address host) external view returns (uint256[] memory) {
+        return createdPools[host];
+    }
+
+    /**
+     * @notice Get joined pools by a participant
+     * @param participant The participant address
+     * @return poolIds The pool ids joined by the participant
+     */
+    function getPoolsJoinedBy(address participant) external view returns (uint256[] memory) {
+        return joinedPools[participant];
+    }
+
+    /**
+     * @notice Get participants list of a pool
+     * @param poolId The pool id
+     * @return participants The list of participants
+     */
+    function getParticipants(uint256 poolId) external view returns (address[] memory) {
+        return participants[poolId];
+    }
+
+    /**
+     * @notice Get winners of a pool
+     * @param poolId The pool id
+     * @return winners The list of winners
+     */
+    function getWinners(uint256 poolId) external view returns (address[] memory) {
+        return winners[poolId];
+    }
+
+    /**
+     * @notice Get claimable pools of a winner
+     * @param winner The winner address
+     * @return claimablePools The list of claimable pools
+     * @return isClaimed The list of claim status
+     */
+    function getClaimablePools(address winner) external view returns (uint256[] memory, bool[] memory) {
+        bool[] memory isClaimed = new bool[](claimablePools[winner].length);
+        for (uint256 i; i < claimablePools[winner].length; i++) {
+            isClaimed[i] = winnerDetail[winner][claimablePools[winner][i]].claimed;
+        }
+        return (claimablePools[winner], isClaimed);
+    }
+
+    /**
+     * @notice Get winners details in array of structs of a pool
+     * @param poolId The pool id
+     * @return winners The list of winners
+     * @return _winners The list of winners details
+     */
+    function getWinnersDetails(uint256 poolId) external view returns (address[] memory, IPool.WinnerDetail[] memory) {
+        IPool.WinnerDetail[] memory _winners = new IPool.WinnerDetail[](winners[poolId].length);
+        for (uint256 i; i < winners[poolId].length; i++) {
+            _winners[i] = winnerDetail[winners[poolId][i]][poolId];
+        }
+        return (winners[poolId], _winners);
+    }
 
     // @dev Get everthing about a pool
     function getAllPoolInfo(uint256 poolId)
