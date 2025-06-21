@@ -5,11 +5,7 @@ import {IERC20} from "./IERC20.sol";
 
 interface IPool {
     event PoolCreated(
-        uint256 poolId,
-        address indexed host,
-        string poolName,
-        uint256 depositAmountPerPerson,
-        address indexed token
+        uint256 poolId, address indexed host, string poolName, uint256 depositAmountPerPerson, address indexed token
     );
     event PoolBalanceUpdated(uint256 poolId, uint256 balanceBefore, uint256 balanceAfter);
     event PoolStatusChanged(uint256 poolId, IPool.POOLSTATUS status);

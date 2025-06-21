@@ -22,11 +22,7 @@ contract AccessTest is Test {
         // Create a pool
         vm.startPrank(host);
         pool.createPool(
-            uint40(block.timestamp + 10 days),
-            uint40(block.timestamp + 11 days),
-            "PoolParty",
-            100e18,
-            address(token)
+            uint40(block.timestamp + 10 days), uint40(block.timestamp + 11 days), "PoolParty", 100e18, address(token)
         );
         pool.enableDeposit(1);
 
@@ -53,11 +49,7 @@ contract AccessTest is Test {
 
         vm.expectRevert();
         pool.createPool(
-            uint40(block.timestamp + 10 days),
-            uint40(block.timestamp + 11 days),
-            "PoolParty",
-            100e18,
-            address(token)
+            uint40(block.timestamp + 10 days), uint40(block.timestamp + 11 days), "PoolParty", 100e18, address(token)
         );
         vm.stopPrank();
     }

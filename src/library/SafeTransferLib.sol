@@ -21,31 +21,31 @@ library SafeTransferLib {
     error TransferFromReturnedFalse();
 
     function safeTransfer(IERC20 token, address to, uint256 value) internal {
-        if(address(token).code.length == 0) {
+        if (address(token).code.length == 0) {
             revert NoCode();
         }
 
         (bool success, bytes memory returndata) =
             address(token).call(abi.encodeCall(IERC20Internal.transfer, (to, value)));
-        if(!success) {
+        if (!success) {
             revert TransferReverted();
         }
-        if(returndata.length != 0 && !abi.decode(returndata, (bool))) {
+        if (returndata.length != 0 && !abi.decode(returndata, (bool))) {
             revert TransferReturnedFalse();
         }
     }
 
     function safeTransferFrom(IERC20 token, address from, address to, uint256 value) internal {
-        if(address(token).code.length == 0) {
+        if (address(token).code.length == 0) {
             revert NoCode();
         }
 
         (bool success, bytes memory returndata) =
             address(token).call(abi.encodeCall(IERC20Internal.transferFrom, (from, to, value)));
-        if(!success) {
+        if (!success) {
             revert TransferFromReverted();
         }
-        if(returndata.length != 0 && !abi.decode(returndata, (bool))) {
+        if (returndata.length != 0 && !abi.decode(returndata, (bool))) {
             revert TransferFromReturnedFalse();
         }
     }

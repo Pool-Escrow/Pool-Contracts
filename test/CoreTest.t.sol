@@ -34,11 +34,7 @@ contract CoreTest is Test {
         vm.startPrank(host);
 
         poolId = pool.createPool(
-            uint40(block.timestamp + 10 days),
-            uint40(block.timestamp + 11 days),
-            "PoolParty",
-            100e18,
-            address(token)
+            uint40(block.timestamp + 10 days), uint40(block.timestamp + 11 days), "PoolParty", 100e18, address(token)
         );
         address res = pool.getHost(poolId);
 
@@ -285,7 +281,7 @@ contract CoreTest is Test {
         pool.startPool(poolId);
         pool.endPool(poolId);
 
-        // PoolId balance should be 0 after alice selfRefund
+        // PoolId balance should be 0 after refund
         assertEq(pool.getPoolBalance(poolId), 0);
 
         // Try exploit other pool by collecting remaining balance, pool 1 should already be 0

@@ -7,7 +7,7 @@ import {Droplet} from "../src/mock/MockERC20.sol";
 import {IERC20} from "../src/interface/IERC20.sol";
 
 contract ParticipantTest is Test {
-	Pool public pool;
+    Pool public pool;
     Droplet public token;
     Droplet public token2;
     address public host;
@@ -22,7 +22,7 @@ contract ParticipantTest is Test {
         vm.pauseGasMetering();
         _;
         vm.resumeGasMetering();
-    }    
+    }
 
     function setUp() public {
         pool = new Pool();
