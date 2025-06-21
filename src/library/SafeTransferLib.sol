@@ -8,6 +8,11 @@ interface IERC20Internal {
     function transferFrom(address from, address to, uint256 value) external returns (bool);
 }
 
+/// @title SafeTransferLib
+/// @author Morpho Labs
+/// @custom:contact security@morpho.org
+/// @notice Library to manage transfers of tokens, even if calls to the transfer or transferFrom functions are not
+/// returning a boolean.
 library SafeTransferLib {
     error NoCode();
     error TransferReverted();
