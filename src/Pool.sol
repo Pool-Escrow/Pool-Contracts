@@ -7,10 +7,7 @@ import {IERC20} from "./interface/IERC20.sol";
 
 /// Libraries
 import {FEES_PRECISION, FORFEIT_WINNINGS_TIMELOCK} from "./library/ConstantsLib.sol";
-import {EventsLib} from "./library/EventsLib.sol";
-import {ErrorsLib} from "./library/ErrorsLib.sol";
 import {ParticipantDetailLib} from "./library/ParticipantDetailLib.sol";
-import {UtilsLib} from "./library/UtilsLib.sol";
 import {SafeTransferLib} from "./library/SafeTransferLib.sol";
 
 /// Dependencies
@@ -54,7 +51,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     /// @notice Modifier to check if user is host
     modifier onlyHost(uint256 poolId) {
         if (!isHost[msg.sender][poolId]) {
-            revert ErrorsLib.Unauthorized(msg.sender);
+            revert IPool.Unauthorized(msg.sender);
         }
         _;
     }
@@ -86,7 +83,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         // Excess as extra donation
         if (amount > amountPerPerson) {
             poolBalance[poolId].sponsored += amount - amountPerPerson;
-            emit EventsLib.ExtraDeposit(poolId, msg.sender, amount - amountPerPerson);
+            emit IPool.ExtraDeposit(poolId, msg.sender, amount - amountPerPerson);
         }
         // Update pool details
         poolBalance[poolId].totalDeposits += amount;
@@ -104,13 +101,13 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         if (participantDetail[msg.sender][poolId].refunded || winnerDetail[msg.sender][poolId].claimed) {
             participantDetail[msg.sender][poolId].refunded = false;
             winnerDetail[msg.sender][poolId].claimed = false;
-            emit EventsLib.ParticipantRejoined(poolId, msg.sender);
+            emit IPool.ParticipantRejoined(poolId, msg.sender);
         }
 
         // Transfer tokens from user to pool
         poolToken[poolId].safeTransferFrom(msg.sender, address(this), amount);
 
-        emit EventsLib.Deposit(poolId, msg.sender, amount);
+        emit IPool.Deposit(poolId, msg.sender, amount);
         return true;
     }
 
@@ -132,7 +129,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         winnerDetail[winner][poolId].amountClaimed += amount;
         poolToken[poolId].safeTransfer(winner, amount);
 
-        emit EventsLib.WinningsClaimed(poolId, winner, amount);
+        emit IPool.WinningsClaimed(poolId, winner, amount);
     }
 
     /// @notice Claim winnings from multiple pools
@@ -207,7 +204,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         // Transfer tokens from user to pool
         poolToken[poolId].safeTransferFrom(msg.sender, address(this), amount);
 
-        emit EventsLib.SponsorshipAdded(poolId, msg.sender, amount);
+        emit IPool.SponsorshipAdded(poolId, msg.sender, amount);
     }
 
     // ----------------------------------------------------------------------------
@@ -235,7 +232,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     ) external onlyRole(WHITELISTED_HOST) whenNotPaused returns (uint256) {
         require(timeStart < timeEnd, "Invalid timing");
         require(penaltyFeeRate <= FEES_PRECISION, "Invalid fees rate");
-        require(UtilsLib.isContract(token), "Token not contract");
+        require(address(token).code.length > 0, "Token not contract");
 
         // Increment pool id
         latestPoolId++;
@@ -255,7 +252,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         // Pool token
         poolToken[latestPoolId] = IERC20(token);
 
-        emit EventsLib.PoolCreated(latestPoolId, msg.sender, poolName, depositAmountPerPerson, penaltyFeeRate, token);
+        emit IPool.PoolCreated(latestPoolId, msg.sender, poolName, depositAmountPerPerson, penaltyFeeRate, token);
         return latestPoolId;
     }
 
@@ -271,7 +268,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         require(poolStatus[poolId] == POOLSTATUS.INACTIVE, "Pool already active");
 
         poolStatus[poolId] = POOLSTATUS.DEPOSIT_ENABLED;
-        emit EventsLib.PoolStatusChanged(poolId, POOLSTATUS.DEPOSIT_ENABLED);
+        emit IPool.PoolStatusChanged(poolId, POOLSTATUS.DEPOSIT_ENABLED);
     }
 
     /**
@@ -283,7 +280,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      */
     function changePoolName(uint256 poolId, string calldata poolName) external onlyHost(poolId) whenNotPaused {
         poolDetail[poolId].poolName = poolName;
-        emit EventsLib.PoolNameChanged(poolId, poolName);
+        emit IPool.PoolNameChanged(poolId, poolName);
     }
 
     /**
@@ -300,7 +297,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         );
         poolDetail[poolId].timeStart = timeStart;
 
-        emit EventsLib.PoolStartTimeChanged(poolId, timeStart);
+        emit IPool.PoolStartTimeChanged(poolId, timeStart);
     }
 
     /**
@@ -316,7 +313,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         );
         poolDetail[poolId].timeEnd = timeEnd;
 
-        emit EventsLib.PoolEndTimeChanged(poolId, timeEnd);
+        emit IPool.PoolEndTimeChanged(poolId, timeEnd);
     }
 
     /**
@@ -332,7 +329,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
 
         poolStatus[poolId] = POOLSTATUS.STARTED;
         poolDetail[poolId].timeStart = uint40(block.timestamp); // update actual start time
-        emit EventsLib.PoolStatusChanged(poolId, POOLSTATUS.STARTED);
+        emit IPool.PoolStatusChanged(poolId, POOLSTATUS.STARTED);
     }
 
     /**
@@ -347,7 +344,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         require(poolStatus[poolId] == POOLSTATUS.STARTED, "Pool not started");
 
         poolStatus[poolId] = POOLSTATUS.DEPOSIT_ENABLED;
-        emit EventsLib.PoolStatusChanged(poolId, POOLSTATUS.DEPOSIT_ENABLED);
+        emit IPool.PoolStatusChanged(poolId, POOLSTATUS.DEPOSIT_ENABLED);
     }
 
     /**
@@ -363,7 +360,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
 
         poolStatus[poolId] = POOLSTATUS.ENDED;
         poolDetail[poolId].timeEnd = uint40(block.timestamp); // update actual end time
-        emit EventsLib.PoolStatusChanged(poolId, POOLSTATUS.ENDED);
+        emit IPool.PoolStatusChanged(poolId, POOLSTATUS.ENDED);
     }
 
     /**
@@ -376,7 +373,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     function deletePool(uint256 poolId) external onlyHost(poolId) whenNotPaused {
         poolStatus[poolId] = POOLSTATUS.DELETED;
 
-        emit EventsLib.PoolStatusChanged(poolId, POOLSTATUS.DELETED);
+        emit IPool.PoolStatusChanged(poolId, POOLSTATUS.DELETED);
     }
 
     /**
@@ -410,7 +407,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
             claimablePools[winner].push(poolId);
             winnerDetail[winner][poolId].alreadyInList = true;
         }
-        emit EventsLib.WinnerSet(poolId, winner, amount);
+        emit IPool.WinnerSet(poolId, winner, amount);
     }
 
     /// @notice Set multiple winners of pool
@@ -464,7 +461,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         address host = poolAdmin[poolId].host;
         poolToken[poolId].safeTransfer(host, fees);
 
-        emit EventsLib.FeesCollected(poolId, host, fees);
+        emit IPool.FeesCollected(poolId, host, fees);
     }
 
     /**
@@ -482,7 +479,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         address host = poolAdmin[poolId].host;
         poolToken[poolId].safeTransfer(host, amount);
 
-        emit EventsLib.RemainingBalanceCollected(poolId, host, amount);
+        emit IPool.RemainingBalanceCollected(poolId, host, amount);
     }
 
     /**
@@ -507,7 +504,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         winnerDetail[winner][poolId].amountWon = 0;
         poolBalance[poolId].balance += amount;
 
-        emit EventsLib.WinningForfeited(poolId, winner, amount);
+        emit IPool.WinningForfeited(poolId, winner, amount);
     }
 
     // ----------------------------------------------------------------------------
@@ -777,7 +774,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
 
         poolToken[poolId].safeTransfer(participant, amount);
 
-        emit EventsLib.Refund(poolId, participant, amount);
+        emit IPool.Refund(poolId, participant, amount);
     }
 
     /**
@@ -795,10 +792,10 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
             participantDetail[msg.sender][poolId].feesCharged += fees;
             poolBalance[poolId].feesAccumulated += fees;
 
-            emit EventsLib.FeesCharged(poolId, msg.sender, fees);
-            emit EventsLib.PoolBalanceUpdated(poolId, prevBalance, prevBalance - fees);
+            emit IPool.FeesCharged(poolId, msg.sender, fees);
+            emit IPool.PoolBalanceUpdated(poolId, prevBalance, prevBalance - fees);
         } else if (block.timestamp > timeStart) {
-            revert ErrorsLib.EventStarted(block.timestamp, timeStart, msg.sender);
+            revert IPool.EventStarted(block.timestamp, timeStart, msg.sender);
         }
     }
 }

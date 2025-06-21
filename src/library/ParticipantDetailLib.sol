@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {IPool} from "../interface/IPool.sol";
-import {EventsLib} from "./EventsLib.sol";
 
 library ParticipantDetailLib {
     function removeParticipantFromPool(
@@ -23,7 +22,7 @@ library ParticipantDetailLib {
         participants[poolId].pop();
         isParticipant[participant][poolId] = false;
 
-        emit EventsLib.ParticipantRemoved(poolId, participant);
+        emit IPool.ParticipantRemoved(poolId, participant);
     }
 
     function removeFromJoinedPool(
@@ -42,6 +41,6 @@ library ParticipantDetailLib {
         }
         joinedPools[participant].pop();
 
-        emit EventsLib.JoinedPoolsRemoved(poolId, participant);
+        emit IPool.JoinedPoolsRemoved(poolId, participant);
     }
 }
