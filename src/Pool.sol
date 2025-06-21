@@ -12,7 +12,6 @@ import {SafeTransferLib} from "./library/SafeTransferLib.sol";
 
 /// Dependencies
 import {Ownable2Step} from "./dependency/Ownable2Step.sol";
-import {IERC20Permit} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Permit.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 
