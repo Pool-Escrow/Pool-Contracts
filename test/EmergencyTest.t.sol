@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {Pool} from "../src/Pool.sol";
 import {Droplet} from "../src/mock/MockERC20.sol";
-import "../src/library/ConstantsLib.sol";
 import {IERC20} from "../src/interface/IERC20.sol";
 
 contract ParticipantTest is Test {
@@ -142,13 +141,11 @@ contract ParticipantTest is Test {
         // Create a pool
         vm.startPrank(host);
         amountToDeposit = 100e18;
-        uint16 feeRate = 3000; // 30% fees
         poolId = pool.createPool(
             uint40(block.timestamp + 10 days),
             uint40(block.timestamp + 11 days),
             "PoolParty",
             amountToDeposit,
-            feeRate,
             address(token)
         );
         pool.enableDeposit(poolId);
@@ -163,7 +160,7 @@ contract ParticipantTest is Test {
         // Alice create pool
         vm.startPrank(alice);
         poolId2 = pool.createPool(
-            uint40(block.timestamp), uint40(block.timestamp + 10 days), "New", amountToDeposit, 0, address(token)
+            uint40(block.timestamp), uint40(block.timestamp + 10 days), "New", amountToDeposit, address(token)
         );
         pool.enableDeposit(poolId2);
     }
@@ -175,13 +172,11 @@ contract ParticipantTest is Test {
         // Create a pool
         vm.startPrank(host);
         amountToDeposit2 = 123e18;
-        uint16 feeRate = 0; // 30% fees
         poolId = pool.createPool(
             uint40(block.timestamp + 10 days),
             uint40(block.timestamp + 11 days),
             "Second Pool",
             amountToDeposit,
-            feeRate,
             address(token2)
         );
         pool.enableDeposit(poolId);

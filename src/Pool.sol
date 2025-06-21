@@ -6,7 +6,6 @@ import {IPool} from "./interface/IPool.sol";
 import {IERC20} from "./interface/IERC20.sol";
 
 /// Libraries
-import {FEES_PRECISION, FORFEIT_WINNINGS_TIMELOCK} from "./library/ConstantsLib.sol";
 import {ParticipantDetailLib} from "./library/ParticipantDetailLib.sol";
 import {SafeTransferLib} from "./library/SafeTransferLib.sol";
 
@@ -18,6 +17,9 @@ import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     using SafeTransferLib for IERC20;
     using ParticipantDetailLib for IPool.ParticipantDetail;
+
+    /// @dev Timelock for admin to forfeit winnings if unclaimed.
+    uint40 constant FORFEIT_WINNINGS_TIMELOCK = 7 days;
 
     uint256 public latestPoolId; // Start from 1, 0 is invalid
     bytes32 public constant WHITELISTED_HOST = 0xd4b8aa22b7d8e3cd5d1a213163a89192d1a63c6abcb930b02aa1c2d6efc32625; // keccak256("WHITELISTED_HOST");
@@ -139,28 +141,6 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         }
     }
 
-    /**
-     * @notice Self refund from a pool
-     * @param poolId The pool id
-     * @dev Pool status must not be ENDED
-     * @dev User must be a participant
-     * @dev User must not have been refunded
-     * @dev Emits Refund event
-     */
-    function selfRefund(uint256 poolId) external whenNotPaused {
-        require(poolStatus[poolId] != POOLSTATUS.STARTED, "Pool started");
-        require(poolStatus[poolId] != POOLSTATUS.ENDED, "Pool ended");
-        require(!participantDetail[msg.sender][poolId].refunded, "Already refunded");
-        require(isParticipant[msg.sender][poolId], "Not a participant");
-        require(winnerDetail[msg.sender][poolId].amountWon == 0, "Winner cannot do refund");
-
-        // Apply fees if pool is not deleted
-        if (poolStatus[poolId] != POOLSTATUS.DELETED) {
-            _applyFees(poolId);
-        }
-        _refund(poolId, msg.sender, 0); // 0 means use default deposit amount after fees
-    }
-
     // ----------------------------------------------------------------------------
     // Sponsor Functions
     // ----------------------------------------------------------------------------
@@ -216,7 +196,6 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      * @param timeEnd The end time of the pool
      * @param poolName The name of the pool
      * @param depositAmountPerPerson The amount to deposit per person
-     * @param penaltyFeeRate The penalty fee rate
      * @param token The token to use for the pool
      * @dev Pool status will be INACTIVE
      * @dev Emits PoolCreated event
@@ -226,11 +205,9 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         uint40 timeEnd,
         string calldata poolName,
         uint256 depositAmountPerPerson, // Can be 0 in case of sponsored pool
-        uint16 penaltyFeeRate, // 10000 = 100%
         address token
     ) external onlyRole(WHITELISTED_HOST) whenNotPaused returns (uint256) {
         require(timeStart < timeEnd, "Invalid timing");
-        require(penaltyFeeRate <= FEES_PRECISION, "Invalid fees rate");
         require(address(token).code.length > 0, "Token not contract");
 
         // Increment pool id
@@ -243,7 +220,6 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         poolDetail[latestPoolId].depositAmountPerPerson = depositAmountPerPerson;
 
         // Pool admin details
-        poolAdmin[latestPoolId].penaltyFeeRate = penaltyFeeRate;
         poolAdmin[latestPoolId].host = msg.sender;
         isHost[msg.sender][latestPoolId] = true;
         createdPools[msg.sender].push(latestPoolId);
@@ -251,7 +227,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         // Pool token
         poolToken[latestPoolId] = IERC20(token);
 
-        emit IPool.PoolCreated(latestPoolId, msg.sender, poolName, depositAmountPerPerson, penaltyFeeRate, token);
+        emit IPool.PoolCreated(latestPoolId, msg.sender, poolName, depositAmountPerPerson, token);
         return latestPoolId;
     }
 
@@ -446,24 +422,6 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     }
 
     /**
-     * @notice Collect fees
-     * @param poolId The pool id
-     * @dev Only send to host
-     * @dev Emits FeesCollected event
-     */
-    function collectFees(uint256 poolId) external whenNotPaused {
-        // Transfer fees to host
-        uint256 fees = poolBalance[poolId].feesAccumulated - poolBalance[poolId].feesCollected;
-        require(fees != 0, "No fees to collect");
-        poolBalance[poolId].feesCollected += fees;
-
-        address host = poolAdmin[poolId].host;
-        poolToken[poolId].safeTransfer(host, fees);
-
-        emit IPool.FeesCollected(poolId, host, fees);
-    }
-
-    /**
      * @notice Collect remaining balance if any
      * @param poolId The pool id
      * @dev Only send to host
@@ -536,15 +494,6 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
     }
 
     /**
-     * @notice Get fees rate of late refund
-     * @param poolId The pool id
-     * @return penaltyFeeRate The penalty fee rate
-     */
-    function getPoolFeeRate(uint256 poolId) public view returns (uint16) {
-        return poolAdmin[poolId].penaltyFeeRate;
-    }
-
-    /**
      * @notice Get pool details
      * @param poolId The pool id
      * @return poolDetail The pool details
@@ -569,24 +518,6 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      */
     function getSponsorshipAmount(uint256 poolId) external view returns (uint256) {
         return poolBalance[poolId].sponsored;
-    }
-
-    /**
-     * @notice Get fees accumulated in a pool
-     * @param poolId The pool id
-     * @return feesAccumulated The fees accumulated in the pool
-     */
-    function getFeesAccumulated(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].feesAccumulated;
-    }
-
-    /**
-     * @notice Get fees collected in a pool
-     * @param poolId The pool id
-     * @return feesCollected The fees collected in the pool
-     */
-    function getFeesCollected(uint256 poolId) external view returns (uint256) {
-        return poolBalance[poolId].feesCollected;
     }
 
     /**
@@ -749,11 +680,7 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
      * @param amount The amount to refund
      */
     function _refund(uint256 poolId, address participant, uint256 amount) internal {
-        uint256 deposited = participantDetail[participant][poolId].deposit;
-        if (amount == 0) {
-            amount = deposited - participantDetail[participant][poolId].feesCharged;
-        }
-        require(amount <= deposited, "Not enough balance");
+        require(amount <= participantDetail[participant][poolId].deposit, "Not enough balance");
 
         // Update participant details
         participantDetail[participant][poolId].refunded = true;
@@ -774,27 +701,5 @@ contract Pool is IPool, Ownable2Step, AccessControl, Pausable {
         poolToken[poolId].safeTransfer(participant, amount);
 
         emit IPool.Refund(poolId, participant, amount);
-    }
-
-    /**
-     * @notice Apply fees to a participant if event is < 24 hours to start
-     * @param poolId The pool id
-     */
-    function _applyFees(uint256 poolId) internal {
-        // Charge fees if event is < 24 hours to start or started
-        uint40 timeStart = poolDetail[poolId].timeStart;
-        if (block.timestamp >= timeStart - 1 days && block.timestamp <= timeStart) {
-            uint256 fees =
-                (poolAdmin[poolId].penaltyFeeRate * participantDetail[msg.sender][poolId].deposit) / FEES_PRECISION;
-            uint256 prevBalance = poolBalance[poolId].balance;
-            poolBalance[poolId].balance -= fees;
-            participantDetail[msg.sender][poolId].feesCharged += fees;
-            poolBalance[poolId].feesAccumulated += fees;
-
-            emit IPool.FeesCharged(poolId, msg.sender, fees);
-            emit IPool.PoolBalanceUpdated(poolId, prevBalance, prevBalance - fees);
-        } else if (block.timestamp > timeStart) {
-            revert IPool.EventStarted(block.timestamp, timeStart, msg.sender);
-        }
     }
 }

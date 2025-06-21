@@ -4,7 +4,6 @@ pragma solidity ^0.8.13;
 import {Test, console} from "forge-std/Test.sol";
 import {Pool} from "../src/Pool.sol";
 import {Droplet} from "../src/mock/MockERC20.sol";
-import "../src/library/ConstantsLib.sol";
 
 contract AccessTest is Test {
     Pool public pool;
@@ -22,13 +21,11 @@ contract AccessTest is Test {
 
         // Create a pool
         vm.startPrank(host);
-        uint16 feeRate = 3000; // 30% fees
         pool.createPool(
             uint40(block.timestamp + 10 days),
             uint40(block.timestamp + 11 days),
             "PoolParty",
             100e18,
-            feeRate,
             address(token)
         );
         pool.enableDeposit(1);
@@ -60,7 +57,6 @@ contract AccessTest is Test {
             uint40(block.timestamp + 11 days),
             "PoolParty",
             100e18,
-            3000,
             address(token)
         );
         vm.stopPrank();

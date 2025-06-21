@@ -9,7 +9,6 @@ interface IPool {
         address indexed host,
         string poolName,
         uint256 depositAmountPerPerson,
-        uint256 penaltyFeeRate,
         address indexed token
     );
     event PoolBalanceUpdated(uint256 poolId, uint256 balanceBefore, uint256 balanceAfter);
@@ -17,8 +16,6 @@ interface IPool {
     event Refund(uint256 poolId, address indexed participant, uint256 amount);
     event Deposit(uint256 poolId, address indexed participant, uint256 amount);
     event ExtraDeposit(uint256 poolId, address indexed participant, uint256 amount);
-    event FeesCollected(uint256 poolId, address indexed host, uint256 fees);
-    event FeesCharged(uint256 poolId, address indexed participant, uint256 fees);
     event ParticipantRemoved(uint256 poolId, address indexed participant);
     event JoinedPoolsRemoved(uint256 poolId, address indexed participant);
     event WinnerSet(uint256 poolId, address indexed winner, uint256 amount);
@@ -45,7 +42,6 @@ interface IPool {
 
     struct PoolAdmin {
         address host;
-        uint16 penaltyFeeRate; // 0.01% (1) to 100% (10000)
     }
 
     struct PoolDetail {
@@ -57,15 +53,12 @@ interface IPool {
 
     struct PoolBalance {
         uint256 totalDeposits; // total deposit amount (won't reduce, for record)
-        uint256 feesAccumulated;
-        uint256 feesCollected;
         uint256 balance; // real current balance of pool
         uint256 sponsored; // extra balance from sponsor or participants
     }
 
     struct ParticipantDetail {
         uint256 deposit; // used for record
-        uint256 feesCharged;
         uint120 participantIndex; // store index for easy removal
         uint120 joinedPoolsIndex; // store index for easy removal
         bool refunded;
@@ -114,16 +107,6 @@ interface IPool {
     /// @notice Claim winnings from multiple pools
     function claimWinnings(uint256[] calldata poolIds, address[] calldata _winners) external;
 
-    /**
-     * @notice Self refund from a pool
-     * @param poolId The pool id
-     * @dev Pool status must not be ENDED
-     * @dev User must be a participant
-     * @dev User must not have been refunded
-     * @dev Emits Refund event
-     */
-    function selfRefund(uint256 poolId) external;
-
     // ----------------------------------------------------------------------------
     // Host Functions
     // ----------------------------------------------------------------------------
@@ -134,7 +117,6 @@ interface IPool {
      * @param timeEnd The end time of the pool
      * @param poolName The name of the pool
      * @param depositAmountPerPerson The amount to deposit per person
-     * @param penaltyFeeRate The penalty fee rate
      * @param token The token to use for the pool
      * @dev Pool status will be INACTIVE
      * @dev Emits PoolCreated event
@@ -144,7 +126,6 @@ interface IPool {
         uint40 timeEnd,
         string calldata poolName,
         uint256 depositAmountPerPerson, // Can be 0 in case of sponsored pool
-        uint16 penaltyFeeRate, // 10000 = 100%
         address token
     ) external returns (uint256);
 
@@ -241,14 +222,6 @@ interface IPool {
      * @dev Emits Refund event
      */
     function refundParticipant(uint256 poolId, address participant, uint256 amount) external;
-
-    /**
-     * @notice Collect fees
-     * @param poolId The pool id
-     * @dev Only send to host
-     * @dev Emits FeesCollected event
-     */
-    function collectFees(uint256 poolId) external;
 
     /**
      * @notice Collect remaining balance if any
