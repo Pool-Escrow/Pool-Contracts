@@ -27,8 +27,8 @@ contract PoolScript is Script {
     function run_withSetup() public {
         vm.startBroadcast(vm.envUint("PRIVATE_KEY"));
         address signer = vm.addr(vm.envUint("PRIVATE_KEY"));
-        pool = Pool(0x7b8C409C603E7857314d94DC11f3C8F928421234);
-        token = Droplet(0x203f3C5EbdbdBD03e19CF1C1378D3A4fCB9358d4);
+        pool = new Pool();
+        token = new Droplet();
 
         uint256 amount = 20e18;
         if (token.balanceOf(signer) == 0) {
